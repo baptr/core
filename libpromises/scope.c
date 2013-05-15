@@ -76,6 +76,31 @@ Scope *ScopeNew(const char *name)
     return ptr;
 }
 
+void ScopeDelete(Scope *del)
+{
+    if (!ThreadLock(cft_vscope))
+    {
+        Log(LOG_LEVEL_ERR, "Could not lock VSCOPE");
+        return;
+    }
+
+    for (Scope *ptr = VSCOPE; ptr != NULL; ptr = ptr->next)
+    {
+        if (ptr == del) {
+            VSCOPE = del->next;
+        }
+        else if (ptr->next == del) {
+            ptr->next = del->next;
+        }
+        free(del->scope);
+        HashFree(del->hashtable);
+        free(del);
+        break;
+    }
+
+    ThreadUnlock(cft_vscope);
+}
+
 void ScopePutMatch(int index, const char *value)
 {
     if (!SCOPE_MATCH)
@@ -358,64 +383,63 @@ void ScopePushThis()
     Scope *op;
     char name[CF_MAXVARSIZE];
 
-    op = ScopeGet("this");
+    int frame_index = RlistLen(CF_STCK);
 
+    op = ScopeGet("this");
+    if (frame_index > 0 && op != NULL)
+    {
+        snprintf(name, CF_MAXVARSIZE, "this_%d", frame_index+1);
+        free(op->scope);
+        op->scope = xstrdup(name);
+        op = ScopeNew("this");
+    }
     if (op == NULL)
     {
-        return;
+        op = ScopeNew("this");
     }
 
-    int frame_index = RlistLen(CF_STCK) - 1;
-    {
-        Rlist *rp = xmalloc(sizeof(Rlist));
+    Rlist *rp = xmalloc(sizeof(Rlist));
 
-        rp->next = CF_STCK;
-        rp->item = op;
-        rp->type = CF_STACK;
-        CF_STCK = rp;
-    }
-    snprintf(name, CF_MAXVARSIZE, "this_%d", frame_index);
-    free(op->scope);
-    op->scope = xstrdup(name);
+    rp->next = CF_STCK;
+    rp->item = op;
+    rp->type = CF_STACK;
+    CF_STCK = rp;
 }
 
 /*******************************************************************/
 
 void ScopePopThis()
 {
-    Scope *op = NULL;
-
     if (RlistLen(CF_STCK) > 0)
     {
-        ScopeClear("this");
-        {
-            Rlist *rp = CF_STCK;
+        Rlist *rp = CF_STCK;
 
-            if (CF_STCK == NULL)
-            {
-                ProgrammingError("Attempt to pop from empty stack");
-            }
+        if (rp->next == NULL)       /* only one left */
+        {
+            ScopeClear("this");
+            CF_STCK = (void *) NULL;
+        }
+        else
+        {
+            Scope *op = NULL;
+            Scope *np = NULL;
+
+            CF_STCK = rp->next;
 
             op = rp->item;
 
-            if (rp->next == NULL)       /* only one left */
-            {
-                CF_STCK = (void *) NULL;
-            }
-            else
-            {
-                CF_STCK = rp->next;
-            }
+            np = rp->next->item;
+            free(np->scope);
+            np->scope = xstrdup("this");
 
-            free((char *) rp);
-        }
-        if (op == NULL)
-        {
-            return;
+            ScopeDelete(op);
         }
 
-        free(op->scope);
-        op->scope = xstrdup("this");
+        free(rp);
+    }
+    else
+    {
+        ProgrammingError("Attempt to pop from empty stack");
     }
 }
 

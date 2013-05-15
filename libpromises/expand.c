@@ -148,12 +148,11 @@ void ExpandPromise(EvalContext *ctx, Promise *pp, PromiseActuator *ActOnPromise,
     CopyLocalizedIteratorsToThisScope(ctx, PromiseGetBundle(pp)->name, listvars);
     CopyLocalizedScalarsToThisScope(ctx, PromiseGetBundle(pp)->name, scalars);
 
-    ScopePushThis();
     ExpandPromiseAndDo(ctx, pcopy, listvars, ActOnPromise, param);
-    ScopePopThis();
 
     PromiseDestroy(pcopy);
     RlistDestroy(listvars);
+    RlistDestroy(scalars);
 
     EvalContextStackPopFrame(ctx);
 }
@@ -571,7 +570,7 @@ bool ExpandScalar(const EvalContext *ctx, const char *scopeid, const char *strin
         return false;
     }
 
-    Log(LOG_LEVEL_DEBUG, "\nExpandPrivateScalar(%s,%s)\n", scopeid, string);
+    Log(LOG_LEVEL_DEBUG, "ExpandScalar(%s,%s)", scopeid, string);
 
     for (sp = string; /* No exit */ ; sp++)     /* check for varitems */
     {
@@ -817,6 +816,7 @@ static void ExpandPromiseAndDo(EvalContext *ctx, const Promise *pp, Rlist *listv
 
         /* End special variables */
 
+        LogIterationContext(lol);
         pexp = ExpandDeRefPromise(ctx, "this", pp);
 
         assert(ActOnPromise);

@@ -89,9 +89,8 @@ Rlist *NewIterationContext(EvalContext *ctx, const char *scopeid, Rlist *namelis
     CfAssoc *new;
     Rval newret;
 
+    ScopePushThis();
     ScopeCopy("this", ScopeGet(scopeid));
-
-    ScopeGet("this");
 
     if (namelist == NULL)
     {
@@ -151,7 +150,7 @@ Rlist *NewIterationContext(EvalContext *ctx, const char *scopeid, Rlist *namelis
 
 void DeleteIterationContext(Rlist *deref)
 {
-    ScopeClear("this");
+    ScopePopThis();
 
     if (deref != NULL)
     {
@@ -242,6 +241,18 @@ static bool IncrementIterationContextInternal(Rlist *iterator, int level)
 int IncrementIterationContext(Rlist *iterator)
 {
     return IncrementIterationContextInternal(iterator, 1);
+}
+
+void LogIterationContext(Rlist *iterator) {
+    for (Rlist *rp = iterator; rp != NULL; rp = rp->next)
+    {
+        CfAssoc *cp = (CfAssoc *) rp->item;
+        Rlist *state = rp->state_ptr;
+        if (state)
+        {
+            Log(LOG_LEVEL_DEBUG, "Iteration wheel %s at %s", (char *)cp->lval, (char *)state->item);
+        }
+    }
 }
 
 /*****************************************************************************/

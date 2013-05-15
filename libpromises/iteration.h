@@ -33,5 +33,6 @@ void DeleteIterationContext(Rlist *lol);
 int IncrementIterationContext(Rlist *iterators);
 int EndOfIteration(Rlist *iterator);
 int NullIterators(Rlist *iterator);
+void LogIterationContext(Rlist *iterator);
 
 #endif
